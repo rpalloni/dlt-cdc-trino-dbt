@@ -32,7 +32,9 @@ make destroy
 PostgreSQL is started with `wal_level=logical`. `init.sql` creates a publication (`olake`) and a replication slot (`olake_slot`) on first boot. \
 OLake connects via the replication slot, reads WAL changes, and writes them as Parquet files under `s3://iceberg/`. \
 After each sync it commits the current Log Sequence Number (LSN) to `docker/olake/config/state.json` and immediately restarts to pick up new changes. \
-Effective latency is one sync cycle (a few seconds).
+⚠️
+As OLake is batch-oriented (not long-running deamon), it reads all WAL changes accumulated since the last committed LSN, flushes them to Iceberg, then exits with code 0. \
+However, as the `restart: always` policy in olake compose immediately relaunches it, a continuous polling loop is in place. Effective latency equals one sync cycle (few seconds).
 
 ### LSN mismatch after destroy
 If you destroy the stack without running `make destroy` (e.g. `docker volume rm` manually), the LSN saved in `state.json` may be ahead of the new PostgreSQL instance. OLake will refuse to sync with:
