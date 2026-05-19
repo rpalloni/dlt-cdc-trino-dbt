@@ -1,0 +1,36 @@
+# MinIO storage
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - 9002:9000 # avoid clash with ClickHouse
+      - 9001:9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-password}
+      MINIO_REGION: ${MINIO_REGION_NAME:-eu-central-1}
+    volumes:
+      - minio-data:/data
+    networks:
+      - data-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/minio server /data --console-address :9001 --address :9000 & sleep 5;
+      /usr/bin/mc alias set local http://localhost:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      /usr/bin/mc mb --ignore-existing local/events;
+      wait
+      "
+
+networks:
+  data-network:
+    external: true
+
+volumes:
+  minio-data:

@@ -1,0 +1,32 @@
+# PostgreSQL source with logical replication enabled for CDC
+
+services:
+  postgres-source:
+    image: postgres:18
+    container_name: postgres-source
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${PG_SOURCE_DB:-pgsource}
+      POSTGRES_USER: ${PG_SOURCE_USER:-pgsource}
+      POSTGRES_PASSWORD: ${PG_SOURCE_PASSWORD:-pgsource}
+      PGDATA: /var/lib/postgresql/data/18/main # needed in PG18
+    command: [ "postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=10", "-c", "max_wal_senders=10"] # enable CDC
+    volumes:
+      - pgsource-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - data-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_SOURCE_USER:-pgsource} -d ${PG_SOURCE_DB:-pgsource}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  data-network:
+    external: true
+
+volumes:
+  pgsource-data:
