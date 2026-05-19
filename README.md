@@ -32,6 +32,7 @@ make destroy
 PostgreSQL is started with `wal_level=logical`. `init.sql` creates a publication (`olake`) and a replication slot (`olake_slot`) on first boot. \
 OLake connects via the replication slot, reads WAL changes, and writes them as Parquet files under `s3://iceberg/`. \
 After each sync it commits the current Log Sequence Number (LSN) to `docker/olake/config/state.json` and immediately restarts to pick up new changes. \
+
 ⚠️
 As OLake is batch-oriented (not long-running deamon), it reads all WAL changes accumulated since the last committed LSN, flushes them to Iceberg, then exits with code 0. \
 However, as the `restart: always` policy in olake compose immediately relaunches it, a continuous polling loop is in place. Effective latency equals one sync cycle (few seconds).
@@ -56,7 +57,6 @@ Console available at [http://localhost:9001](http://localhost:9001) (default cre
 
 Iceberg data is written to the `iceberg` bucket under `postgres_pgsource_public/<table>/`.
 
-
 ## Trino
 UI available at [http://localhost:8080](http://localhost:8080) \
 SQL client: **Trino** connection to localhost 8080, database `iceberg`, any username and no password
@@ -74,3 +74,26 @@ Trino connects to the Iceberg JDBC catalog stored in PostgreSQL (`pgsource`) tab
 
 OLake registers tables under the catalog name `olake_iceberg` (set in `iceberg.jdbc-catalog-name` in `iceberg.properties`).
 
+### Iceberg metadata layer
+Iceberg splits metadata across two places:
+
+**Postgres (JDBC catalog)** - one row per table, just a pointer to latest metadata file:
+```
+catalog_name  | table_namespace           | table_name | metadata_location
+olake_iceberg | postgres_pgsource_public  | companies  | s3://iceberg/.../metadata/v3.metadata.json
+```
+
+**MinIO (S3)** - the full Iceberg metadata and data:
+```
+s3://iceberg/postgres_pgsource_public/companies/
+|---metadata/
+|     |--v1.metadata.json     <- schema, partition spec, snapshot history
+|     |--snap-123.avro        <- manifest list
+|     |--manifest-abc.avro    <- list of parquet data files
+|---data/
+      |--*.parquet            <- row data
+```
+
+When Trino executes a query it: looks up `metadata_location` in PostgreSQL -> reads the metadata files from MinIO -> reads the parquet data files from MinIO. \
+Postgres catalog is only an entry point for Trino while the actual metadata and data lives in the bucket. \
+OLake writes to both layers: it updates the pointer in PostgreSQL at each change and writes metadata + parquet files to MinIO.
