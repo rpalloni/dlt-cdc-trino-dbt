@@ -77,13 +77,13 @@ OLake registers tables under the catalog name `olake_iceberg` (set in `iceberg.j
 ### Iceberg metadata layer
 Iceberg splits metadata across two places:
 
-**Postgres (JDBC catalog)** - one row per table, just a pointer to latest metadata file:
+1 - **Postgres (JDBC catalog)** - one row per table, just a pointer to latest metadata file:
 ```
 catalog_name  | table_namespace           | table_name | metadata_location
 olake_iceberg | postgres_pgsource_public  | companies  | s3://iceberg/.../metadata/v3.metadata.json
 ```
 
-**MinIO (S3)** - the full Iceberg metadata and data:
+2- **MinIO (metadata)** - the full Iceberg metadata (and data):
 ```
 s3://iceberg/postgres_pgsource_public/companies/
 |---metadata/
