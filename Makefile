@@ -3,6 +3,7 @@ COMPOSE = docker compose \
 	-f docker/docker-compose-pg-cdc.yml \
 	-f docker/docker-compose-storage.yml \
 	-f docker/docker-compose-olake.yml \
+	-f docker/docker-compose-trino.yml \
 	--env-file docker/.env
 
 network:
