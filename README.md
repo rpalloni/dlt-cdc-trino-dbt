@@ -1,10 +1,12 @@
 CDC pipeline: PostgreSQL changes are captured in real time and written to Apache Iceberg tables on MinIO object storage.
+dlt pipeline: `loader/` directory contains a second pipeline that generates synthetic analytics events and ingests them into Iceberg via [dlt](https://dlthub.com)
 
 Trino as query engine to read Iceberg tables.
 
 ## Architecture
 ```
-PostgreSQL (WAL) --> OLake --> Iceberg / MinIO <-- Trino
+PostgreSQL (WAL)    --> OLake --> Iceberg   / MinIO <-- Trino
+MinIO events source --> dlt Iceberg tables  / MinIO <-- Trino
 ```
 
 | Component | Role |
@@ -23,13 +25,13 @@ Create the `.env` file in `/docker` and run:
 # Start the full stack and init Postgres
 make up
 
-make events (terminal 1)
-make ingest (terminal 2)
+make events # (terminal 1)
+make ingest # (terminal 2)
 
 # Tear down (containers + volumes)
 make destroy
 ```
-
+Run both terminals in parallel — `make ingest` polls every 5 seconds and picks up only files added since the last run (incremental by `modification_date`), so it processes batches as `make events` writes them. \
 `make destroy` also resets `state.json` so the next `make up` performs a clean re-snapshot.
 
 ## Postgres CDC
@@ -48,13 +50,21 @@ lsn mismatch, please proceed with clear destination
 ```
 
 ## OLake Configuration
-
 | File | Purpose |
 |---|---|
 | `docker/olake/config/source.json` | PostgreSQL connection + CDC settings |
 | `docker/olake/config/destination.json` | Iceberg writer + JDBC catalog + MinIO S3 settings |
 | `docker/olake/config/catalog.json` | Selected streams (tables) and their schemas |
 | `docker/olake/config/state.json` | Last committed LSN — do not edit manually |
+
+
+### dlt Loader
+| File | Role |
+|---|---|
+| `loader/events-engine.py` | Generates synthetic Segment-style events and writes JSONL batches to MinIO `s3://events/` |
+| `loader/events-ingestion.py` | Polls `s3://events/` for new JSONL files (incremental) and loads them into an Iceberg table via dlt |
+| `loader/constants.py` | Shared config — MinIO credentials, event types, user pool, batch settings |
+
 
 ## MinIO
 Console available at [http://localhost:9001](http://localhost:9001) (default credentials: `admin` / `password`).
@@ -76,7 +86,8 @@ Trino connects to the Iceberg JDBC catalog stored in PostgreSQL (`pgsource`) tab
 1) Table: `iceberg_tables` - Purpose: One row per table
 2) Table: `iceberg_namespace_properties` - Purpose: One row per namespace property (`postgres_pgsource_public`)
 
-OLake registers tables under the catalog name `olake_iceberg` (set in `iceberg.jdbc-catalog-name` in `iceberg.properties`).
+OLake registers tables under the catalog `olake_iceberg` (set in `iceberg.jdbc-catalog-name` in `iceberg.properties`). \
+dlt registers tables under the catalog `olake_iceberg` (set in `iceberg_catalog_name    = "olake_iceberg"` in `secrets.toml`).
 
 ### Iceberg metadata layer
 Iceberg splits metadata across two places:
@@ -84,7 +95,9 @@ Iceberg splits metadata across two places:
 1 - **Postgres (JDBC catalog)** - one row per table, just a pointer to latest metadata file:
 ```
 catalog_name  | table_namespace           | table_name | metadata_location
-olake_iceberg | postgres_pgsource_public  | companies  | s3://iceberg/.../metadata/v3.metadata.json
+olake_iceberg | postgres_pgsource_public  | companies  | s3://iceberg/postgres_pgsource_public/companies/metadata/00001-xxx.metadata.json
+olake_iceberg | postgres_pgsource_public  | invoices   | s3://iceberg/postgres_pgsource_public/invoices/metadata/00001-zzz.metadata.json
+olake_iceberg | events                    | events     | s3://iceberg/events/events/metadata/00007-kkk.metadata.json
 ```
 
 2- **MinIO (metadata)** - the full Iceberg metadata (and data):
@@ -98,6 +111,22 @@ s3://iceberg/postgres_pgsource_public/companies/
       |--*.parquet            <- row data
 ```
 
-When Trino executes a query it: looks up `metadata_location` in PostgreSQL -> reads the metadata files from MinIO -> reads the parquet data files from MinIO. \
+### Iceberg events table
+dlt ingests all JSONL files into a single Iceberg table with two partition columns:
+
+| Partition | Column | Granularity |
+|---|---|---|
+| `day` | `timestamp` | one partition per calendar day |
+| `identity` | `type` | one partition per event type (`track` / `identify` / `page`) |
+
+Query from Trino after ingestion:
+```sql
+SELECT type, count(*) FROM iceberg.events.events GROUP BY type;
+SELECT * FROM iceberg.events.events WHERE type = 'track' LIMIT 10;
+```
+
+When Trino executes a query it: looks up `metadata_location` in PostgreSQL -> reads the `metadata` files from MinIO -> reads the `parquet` data files from MinIO. \
 Postgres catalog is only an entry point for Trino while the actual metadata and data lives in the bucket. \
-OLake writes to both layers: it updates the pointer in PostgreSQL at each change and writes metadata + parquet files to MinIO.
+OLake writes to both layers: it updates the pointer in PostgreSQL at each change and writes metadata + parquet files to MinIO. \
+Similarly, when dlt commits a new snapshot, PyIceberg (which dlt uses under the hood) updates the `metadata_location` pointer in the `iceberg_tables`.
+Both pipelines share the same two-layer write path.
