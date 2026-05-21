@@ -1,4 +1,4 @@
-CDC pipeline: PostgreSQL changes are captured in real time and written to Apache Iceberg tables on MinIO object storage.
+CDC pipeline: PostgreSQL changes are captured in real time and written to Apache Iceberg tables on MinIO object storage. \
 dlt pipeline: `loader/` directory contains a second pipeline that generates synthetic analytics events and ingests them into Iceberg via [dlt](https://dlthub.com)
 
 Trino as query engine to read Iceberg tables.
