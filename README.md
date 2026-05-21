@@ -18,9 +18,13 @@ OLake uses a JDBC catalog (backed by the same PostgreSQL instance) to track Iceb
 
 
 ## Run
+Create the `.env` file in `/docker` and run:
 ```bash
-# Start the full stack
+# Start the full stack and init Postgres
 make up
+
+make events (terminal 1)
+make ingest (terminal 2)
 
 # Tear down (containers + volumes)
 make destroy
