@@ -134,3 +134,15 @@ Postgres catalog is only an entry point for Trino while the actual metadata and 
 OLake writes to both layers: it updates the pointer in PostgreSQL at each change and writes metadata + parquet files to MinIO. \
 Similarly, when dlt commits a new snapshot, PyIceberg (which dlt uses under the hood) updates the `metadata_location` pointer in the `iceberg_tables`.
 Both pipelines share the same two-layer write path.
+
+## Metabase
+Official connector Starburst(Trino)
+
+| Field    | Value                               |
+| -------- | ----------------------------------- |
+| UI       | localhost:3000                      |
+| Host     | trino-coordinator                   |
+| Port     | 8080                                |
+| Catalog  | iceberg (ref is iceberg.properties) |
+| User     | any string                          |
+| Password | (empty)                             |
