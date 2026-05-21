@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: stg_companies
+    description: Cleaned companies from the CDC Iceberg source.
+    columns:
+      - name: company_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: company_name
+        data_tests:
+          - not_null
+      - name: country
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['IT', 'DE', 'FR', 'ES', 'NL']
+
+  - name: stg_invoices
+    description: Cleaned invoices from the CDC Iceberg source.
+    columns:
+      - name: invoice_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: company_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_companies')
+              field: company_id
+      - name: invoice_number
+        data_tests:
+          - unique
+          - not_null
+      - name: amount
+        data_tests:
+          - not_null
+      - name: currency
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['EUR', 'USD', 'GBP']
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['draft', 'pending', 'paid', 'overdue']
+
+  - name: stg_events
+    description: Cleaned analytics events from the dlt Iceberg source.
+    columns:
+      - name: message_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: type
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['track', 'identify', 'page']
+      - name: event_at
+        data_tests:
+          - not_null
+      - name: event_date
+        data_tests:
+          - not_null

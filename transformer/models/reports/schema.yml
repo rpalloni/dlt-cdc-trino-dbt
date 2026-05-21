@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: rpt_events_by_day_type
+    description: Count of analytics events aggregated by day and event type.
+    columns:
+      - name: event_date
+        data_tests:
+          - not_null
+      - name: type
+        data_tests:
+          - not_null
+      - name: event_count
+        data_tests:
+          - not_null
+
+  - name: rpt_invoices_stats
+    description: Invoice volume and value aggregated by status and currency.
+    columns:
+      - name: status
+        data_tests:
+          - not_null
+      - name: currency
+        data_tests:
+          - not_null
+      - name: invoice_count
+        data_tests:
+          - not_null
+
+  - name: rpt_companies_stats
+    description: Company count aggregated by country.
+    columns:
+      - name: country
+        data_tests:
+          - not_null
+      - name: company_count
+        data_tests:
+          - not_null

@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: dim_companies
+    description: Company dimension enriched for analytics.
+    columns:
+      - name: company_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: company_name
+        data_tests:
+          - not_null
+      - name: country
+        data_tests:
+          - not_null
+
+  - name: fct_invoices
+    description: Invoice fact table joined with company dimension.
+    columns:
+      - name: invoice_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: company_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_companies')
+              field: company_id
+      - name: company_name
+        data_tests:
+          - not_null
+      - name: amount
+        data_tests:
+          - not_null
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['draft', 'pending', 'paid', 'overdue']
+
+  - name: fct_events
+    description: Event fact table with derived event category.
+    columns:
+      - name: message_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: type
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['track', 'identify', 'page']
+      - name: event_at
+        data_tests:
+          - not_null
+      - name: event_date
+        data_tests:
+          - not_null
+      - name: event_category
+        data_tests:
+          - not_null

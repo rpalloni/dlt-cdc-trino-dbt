@@ -6,7 +6,14 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "boto3>=1.43.0",
+    "dbt-trino>=1.10.1",
     "dlt[filesystem]>=1.27.0",
     "dotenv>=0.9.9",
     "pyiceberg[pyarrow,sql-postgres]>=0.11.1",
+]
+
+[tool.uv]
+# dbt-trino pins mashumaro<3.18 but 3.21+ is required for python 3.14
+override-dependencies = [
+    "mashumaro[msgpack] >= 3.21"
 ]

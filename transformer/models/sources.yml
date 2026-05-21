@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+   - name: pgsource
+     database: iceberg
+     schema: postgres_pgsource_public
+     tables:
+        - name: companies
+        - name: invoices
+
+   - name: events
+     database: iceberg
+     schema: events
+     tables:
+        - name: events

@@ -18,6 +18,12 @@ events:
 ingest:
 	cd loader && uv run events-ingestion.py
 
+transform:
+	cd transformer && uv run dbt run
+
+test:
+	cd transformer && uv run dbt test
+	
 down: 
 	$(COMPOSE) down
 
